@@ -15,10 +15,15 @@ console.log("server started");
 
 var io = require('socket.io')(serv,{});
 io.sockets.on('connection', function(socket){
-    console.log('socket connection');
+    
     //socket gaan luisteren naar happy
     socket.on('happy',function(data){
         console.log('iets');
     })
+});
+
+setInterval(function(){
+    var pack = [];
+    
 });
 

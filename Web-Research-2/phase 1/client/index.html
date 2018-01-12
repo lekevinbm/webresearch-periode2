@@ -1,7 +1,43 @@
-Hello world
+<!DOCTYPE html>
+<html>
+    <head>
+            <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+    </head>
+<body>
+
+    <h1>Say Hello</h1>
+    <h2 id="reply"></h2>
+    <h2 id="name"></h2>
+
+</body>
+</html>
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/annyang/2.6.0/annyang.min.js"></script>
 <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
 <script>
-    var socket = io();
+    if (annyang) {
+        var counter = 1;
 
+      // Let's define our first command. First the text we expect, and then the function it should call
+      var commands = {
+        'hello': function() {            
+          $('#reply').text("- Hello Kevin! You said hello "+counter+" time.");
+          counter++;
+        },
+
+        'my name is *name': function(name) {            
+          $('#name').text("So your name is "+name+", right?");
+          counter++;
+        }
+      };
+    
+      // Add our commands to annyang
+      annyang.addCommands(commands);
+    
+      // Start listening. You can call this here, or attach this call to an event, button, etc.
+      annyang.start();
+    }
+
+    var socket = io();
     socket.emit('happy');
 </script>
