@@ -5,9 +5,8 @@
     </head>
 <body>
 
-    <h1>Say Hello</h1>
-    <h2 id="reply"></h2>
-    <h2 id="name"></h2>
+    <h2 id="instruction">Say 'My name is', followed by your name. For example 'my name is Kevin'.</h2>
+    <canvas id="ctx" width="600" height="600" style="border:1px solid #000;"></canvas>
 
 </body>
 </html>
@@ -15,29 +14,133 @@
 <script src="//cdnjs.cloudflare.com/ajax/libs/annyang/2.6.0/annyang.min.js"></script>
 <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
 <script>
-    if (annyang) {
-        var counter = 1;
+    var ctx = $('#ctx')[0].getContext('2d');
+    ctx.font = '20px Arial'; 
+    var socket = io();
+    for(i=1; i<11; i++){
+        ctx.fillText(i,50*i+20,35);    //Write text ... ctx.fillText('text',x,y);
+        var letter = String.fromCharCode('A'.charCodeAt(0) + i-1);
+        ctx.fillText(letter,25,50*i+30);    //Write text ... ctx.fillText('text',x,y);
+    }
 
-      // Let's define our first command. First the text we expect, and then the function it should call
-      var commands = {
-        'hello': function() {            
-          $('#reply').text("- Hello Kevin! You said hello "+counter+" time.");
-          counter++;
-        },
+    socket.on('boats',function(boats){
+        console.log(boats);
+        ctx.clearRect(50,50,500,500);           
 
-        'my name is *name': function(name) {            
-          $('#name').text("So your name is "+name+", right?");
-          counter++;
+        for(i=1; i<11; i++){
+            for(j=1; j<11; j++){
+                ctx.strokeStyle = 'black';
+                ctx.strokeRect(i*50,j*50,50,50);
+                //ctx.fillStyle = 'orange';
+                //ctx.fillRect(i*50,j*50,50,50);            //Draw rectangle ... ctx.fillRect(startX,startY,width,height);
+                for(k=0; k<boats.allPieces.length; k++){
+                    if( boats.allPieces[k][0] == i+2 && boats.allPieces[k][1] == j+3){
+                        ctx.fillStyle = 'orange';
+                        ctx.fillRect(i*50,j*50,50,50);            //Draw rectangle ... ctx.fillRect(startX,startY,width,height);                        
+                    }
+                }
+            }
         }
-      };
+
+    })   
+
+    if (annyang) {
+        var commandToComfirm = '';
+        var name = '';
+        var target;
+
+        // Let's define our first command. First the text we expect, and then the function it should call
+        var nameCommand = {
+            'my name is *answer': function(answer) {
+                commandToComfirm = 'nameCommand';            
+                $('#instruction').text("So your name is "+answer+", right? Answer with 'yes' or 'no'.");
+                name = answer;
+                // Add our commands to annyang
+                annyang.addCommands(comfirmCommand);
+                // Don't respond
+                annyang.removeCommands(nameCommand);
+            },
+        }
+
+        var generateCommand = {
+            'generate boats': function() {
+                commandToComfirm = 'generateCommand';              
+                socket.emit('generateBoat');
+                $('#instruction').text("Say 'Begin' to begin or say 'Generate boats' to generate boats again.");
+                // Add our commands to annyang
+                annyang.addCommands(comfirmCommand);
+                // Don't respond
+                annyang.removeCommands(generateCommand);
+            },
+        }
+
+        var shootCommand = {
+            'shoot *coordinate': function(coordinate) {
+                commandToComfirm = 'shootCommand';            
+                $('#instruction').text("Do you want to shoot "+coordinate+" ? Answer with 'yes' or 'no'.");
+                target = coordinate; 
+                // Add our commands to annyang
+                annyang.addCommands(comfirmCommand);
+                // Don't respond
+                annyang.removeCommands(shootCommand);
+            },
+        }
+
+        var comfirmCommand = {
+            'yes': function() {
+                if(commandToComfirm == 'nameCommand') {
+                    socket.emit('nameSaid',{'name':name});
+                    $('#instruction').text("Say 'Generate boats' to generate boats.");
+                    // Add the generate command to annyang
+                    annyang.addCommands(generateCommand);
+                    // Don't respond
+                    annyang.removeCommands(comfirmCommand);
+                }
+                if(commandToComfirm == 'shootCommand') {
+                    socket.emit('target',target);
+                    $('#instruction').text("You've shot "+target);
+                    // Don't respond
+                    annyang.removeCommands(comfirmCommand);
+                }
+            },
+            'begin': function(){
+                if(commandToComfirm == 'generateCommand') {
+                    socket.emit('readyToShoot');
+                    $('#instruction').text("Say: 'shoot' and then the coordinate you want to shoot. For example:'shoot D4'");
+                    // Add the generate command to annyang
+                    annyang.addCommands(shootCommand);
+                    // Don't respond
+                    annyang.removeCommands(comfirmCommand);
+                }           
+            },
+            'no':function(){
+                if(commandToComfirm == 'nameCommand') {
+                    $('#instruction').text("Say 'My name is', followed by your name. For example 'my name is Kevin.");
+                    // Add our commands to annyang
+                    annyang.addCommands(nameCommand);
+                    // Don't respond
+                    annyang.removeCommands(comfirmCommand);
+                }
+                if(commandToComfirm == 'shootCommand') {
+                    $('#instruction').text("Say: 'shoot' and then the coordinate you want to shoot. For example:'shoot D4'");
+                    // Add our commands to annyang
+                    annyang.addCommands(shootCommand);
+                    // Don't respond
+                    annyang.removeCommands(comfirmCommand);
+                }
+            },
+        }
+
+        /*annyang.addCallback('resultMatch', function(userSaid, commandText, phrases) {
+        console.log(userSaid); // sample output: 'hello'
+        console.log(commandText); // sample output: 'hello (there)'
+        console.log(phrases); // sample output: ['hello', 'halo', 'yellow', 'polo', 'hello kitty']
+        });*/
     
       // Add our commands to annyang
-      annyang.addCommands(commands);
+      annyang.addCommands(nameCommand);
     
       // Start listening. You can call this here, or attach this call to an event, button, etc.
       annyang.start();
     }
-
-    var socket = io();
-    socket.emit('happy');
 </script>
