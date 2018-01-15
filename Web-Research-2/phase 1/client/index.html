@@ -14,6 +14,7 @@
 
 <script src="//cdnjs.cloudflare.com/ajax/libs/annyang/2.6.0/annyang.min.js"></script>
 <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+<script src="/client/js/bundle.js"></script>
 <script>
     var ctx = $('#ctx')[0].getContext('2d');
     ctx.font = '20px Arial';
@@ -23,23 +24,24 @@
     var socket = io();
 
     for(i=1; i<11; i++){
-        ctx.fillText(i,50*i+20,35);    //Write text ... ctx.fillText('text',x,y);
+        ctx.fillText(i,25,50*i+30);    //Write text ... ctx.fillText('text',x,y);
         var letter = String.fromCharCode('A'.charCodeAt(0) + i-1);
-        ctx.fillText(letter,25,50*i+30);    //Write text ... ctx.fillText('text',x,y);
+        ctx.fillText(letter,50*i+20,35);    //Write text ... ctx.fillText('text',x,y);
 
-        ctxEnemy.fillText(i,50*i+20,35);    //Write text ... ctx.fillText('text',x,y);
+        ctxEnemy.fillText(i,25,50*i+30);    //Write text ... ctx.fillText('text',x,y);
         var letter = String.fromCharCode('A'.charCodeAt(0) + i-1);
-        ctxEnemy.fillText(letter,25,50*i+30);    //Write text ... ctx.fillText('text',x,y);
+        ctxEnemy.fillText(letter,50*i+20,35);    //Write text ... ctx.fillText('text',x,y);
     }
 
     socket.on('boats',function(boats){
-        console.log(boats);
-        ctx.clearRect(50,50,500,500);           
+        ctx.clearRect(50,50,500,500);      
 
         for(i=1; i<11; i++){
             for(j=1; j<11; j++){
                 ctx.strokeStyle = 'black';
                 ctx.strokeRect(i*50,j*50,50,50);
+                ctxEnemy.strokeStyle = 'black';
+                ctxEnemy.strokeRect(i*50,j*50,50,50);
                 //ctx.fillStyle = 'orange';
                 //ctx.fillRect(i*50,j*50,50,50);            //Draw rectangle ... ctx.fillRect(startX,startY,width,height);
                 for(k=0; k<boats.allPieces.length; k++){
@@ -60,25 +62,33 @@
         var target;
         var readyToShoot = false;
 
-        socket.on('playerId',function(id){
-            playerId = id;
+        socket.on('playerId',function(data){
+            playerId = data.playerId;
         });
 
         socket.on('gameStarted',function(data){
             if(readyToShoot){
                 for(i=1; i<11; i++){
                     for(j=1; j<11; j++){
-                        ctxEnemy.strokeStyle = 'black';
-                        ctxEnemy.strokeRect(i*50,j*50,50,50);
-                        //ctxEnemy.fillStyle = 'orange';
-                        //ctxEnemy.fillRect(i*50,j*50,50,50);            //Draw rectangle ... ctx.fillRect(startX,startY,width,height);
+                        for(k=0; k<data.players[playerId].boatPiecesHit.length; k++){
+                            if( data.players[playerId].boatPiecesHit[k][0] == i+2 && data.players[playerId].boatPiecesHit[k][1] == j+3){
+                                ctx.fillStyle = 'red';
+                                ctx.fillRect(i*50,j*50,50,50);            //Draw rectangle ... ctx.fillRect(startX,startY,width,height);                        
+                            }
+                        }
+
+                        for(k=0; k<data.players[playerId].emptySquaresHit.length; k++){
+                            if( data.players[playerId].emptySquaresHit[k][0] == i+2 && data.players[playerId].emptySquaresHit[k][1] == j+3){
+                                ctx.fillStyle = 'blue';
+                                ctx.fillRect(i*50,j*50,50,50);            //Draw rectangle ... ctx.fillRect(startX,startY,width,height);                        
+                            }
+                        }
                     }
                 }
 
                 $('#instruction').text("Game started. It's the turn of the enemy.");
-                console.log(data.players);
                 if (playerId == data.idOfPlayerToPlay){
-                    $('#instruction').text("Say: 'shoot' and then the coordinate you want to shoot. For example:'shoot D4'");
+                    $('#instruction').text("Say the coordinates you want to shoot like this: 'letter', followed by the letter and then 'number followed by the number. For example:'letter D number 4'");
                     // Add the generate command to annyang
                     annyang.addCommands(shootCommand);
                 }
@@ -94,7 +104,7 @@
                 // Add our commands to annyang
                 annyang.addCommands(comfirmCommand);
                 // Don't respond
-                annyang.removeCommands(nameCommand);
+                annyang.removeCommands('nameCommand');
             },
         }
 
@@ -106,21 +116,26 @@
                 // Add our commands to annyang
                 annyang.addCommands(comfirmCommand);
                 // Don't respond
-                annyang.removeCommands(generateCommand);
+                annyang.removeCommands('generateCommand');
             },
         }
 
         var shootCommand = {
-            'shoot *coordinate': function(coordinate) {
-                commandToComfirm = 'shootCommand';            
-                $('#instruction').text("Do you want to shoot "+coordinate+" ? Answer with 'yes' or 'no'.");
-                target = coordinate; 
-                // Add our commands to annyang
-                annyang.addCommands(comfirmCommand);
+            'letter *letter number *number': function(letter, number) {
+                target = [letter,number];
+                socket.emit('checkSpeech',{'target':target});                
                 // Don't respond
-                annyang.removeCommands(shootCommand);
-            },
+                annyang.removeCommands('shootCommand');
+            }
         }
+
+        socket.on('convertedTarget',function(data){
+            commandToComfirm = 'shootCommand';
+            target = [data.targetLetter,data.targetNumber];
+            $('#instruction').text("Do you want to shoot '"+data.targetLetter+" "+data.targetNumber+"' ? Answer with 'yes' or 'no' or repeat the command.");
+            // Add our commands to annyang
+            annyang.addCommands(comfirmCommand);
+        })
 
         var comfirmCommand = {
             'yes': function() {
@@ -130,13 +145,13 @@
                     // Add the generate command to annyang
                     annyang.addCommands(generateCommand);
                     // Don't respond
-                    annyang.removeCommands(comfirmCommand);
+                    annyang.removeCommands('comfirmCommand');
                 }
                 if(commandToComfirm == 'shootCommand') {
                     socket.emit('target',{'target':target,'playerId':playerId});
                     $('#instruction').text("You've shot "+target);
                     // Don't respond
-                    annyang.removeCommands(comfirmCommand);
+                    annyang.removeCommands('comfirmCommand');
                 }
             },
             'begin': function(){
@@ -146,7 +161,8 @@
                     readyToShoot = true;
                     //$('#instruction').text("Say: 'shoot' and then the coordinate you want to shoot. For example:'shoot D4'");
                     // Don't respond
-                    annyang.removeCommands(comfirmCommand);
+                    annyang.removeCommands('comfirmCommand');
+                    
                 }           
             },
             'no':function(){
@@ -155,25 +171,63 @@
                     // Add our commands to annyang
                     annyang.addCommands(nameCommand);
                     // Don't respond
-                    annyang.removeCommands(comfirmCommand);
+                    annyang.removeCommands('comfirmCommand');
                 }
                 if(commandToComfirm == 'shootCommand') {
-                    $('#instruction').text("Say: 'shoot' and then the coordinate you want to shoot. For example:'shoot D4'");
+                    $('#instruction').text("Say the coordinates you want to shoot like this: 'letter', followed by the letter and then 'number followed by the number. For example:'letter D number 4'");
                     // Add our commands to annyang
                     annyang.addCommands(shootCommand);
                     // Don't respond
-                    annyang.removeCommands(comfirmCommand);
+                    annyang.removeCommands('comfirmCommand');
                 }
             },
         }
 
+        socket.on('shootingFinished',function(data){
+            console.log(data.player);
+            ctxEnemy.clearRect(50,50,500,500);
+            for(i=1; i<11; i++){
+                for(j=1; j<11; j++){
+                    ctxEnemy.strokeStyle = 'black';
+                    ctxEnemy.strokeRect(i*50,j*50,50,50);
+                    //ctx.fillStyle = 'orange';
+                    //ctx.fillRect(i*50,j*50,50,50);            //Draw rectangle ... ctx.fillRect(startX,startY,width,height);
+                    for(k=0; k<data.player.boatPiecesHitOfEnemy.length; k++){
+                        if( data.player.boatPiecesHitOfEnemy[k][0] == i+2 && data.player.boatPiecesHitOfEnemy[k][1] == j+3){
+                            ctxEnemy.fillStyle = 'red';
+                            ctxEnemy.fillRect(i*50,j*50,50,50);            //Draw rectangle ... ctx.fillRect(startX,startY,width,height);                        
+                        }
+                    }
+
+                    for(k=0; k<data.player.emptySquaresHitOfEnemy.length; k++){
+                        if( data.player.emptySquaresHitOfEnemy[k][0] == i+2 && data.player.emptySquaresHitOfEnemy[k][1] == j+3){
+                            ctxEnemy.fillStyle = 'blue';
+                            ctxEnemy.fillRect(i*50,j*50,50,50);            //Draw rectangle ... ctx.fillRect(startX,startY,width,height);                        
+                        }
+                    }
+                }
+            }
+        });
+
+        socket.on('gameover',function(data){
+            if(data.winnerId == playerId){
+                $('#instruction').text("Game Over! You Won!");
+                // Don't respond
+                annyang.removeCommands('shootCommand');
+            }else{
+                $('#instruction').text("Game Over! You Lost!");
+                // Don't respond
+                annyang.removeCommands('shootCommand');
+            }
+        });
+
         
 
-        /*annyang.addCallback('resultMatch', function(userSaid, commandText, phrases) {
+        annyang.addCallback('resultMatch', function(userSaid, commandText, phrases) {
         console.log(userSaid); // sample output: 'hello'
         console.log(commandText); // sample output: 'hello (there)'
         console.log(phrases); // sample output: ['hello', 'halo', 'yellow', 'polo', 'hello kitty']
-        });*/
+        });
     
         // Add our commands to annyang
         annyang.addCommands(nameCommand);
