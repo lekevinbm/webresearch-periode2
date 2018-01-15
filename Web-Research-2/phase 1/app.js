@@ -90,23 +90,25 @@ var Player = function(id){
     return self;
 }
 
+var idOfPlayer = 1;
+var globalSocket; 
 
-
-var idCounter = 1; 
 var io = require('socket.io')(serv,{});
 io.sockets.on('connection', function(socket){
-
-    socket.id = idCounter;
-    idCounter++;
+    globalSocket = socket;
+    var idOfPlayerToPlay = 1;    
+    socket.id = idOfPlayer;
+    idOfPlayer++;
     SOCKET_LIST[socket.id] = socket;
  
     var player = Player(socket.id);
+    socket.emit('playerId',player.id);
     PLAYER_LIST[socket.id] = player;
 
-    /*socket.on('disconnect',function(){
+    socket.on('disconnect',function(){
         delete SOCKET_LIST[socket.id];
         delete PLAYER_LIST[socket.id];
-    });*/
+    });
 
     //socket listens to generateBoat
     socket.on('nameSaid',function(data){
@@ -120,19 +122,33 @@ io.sockets.on('connection', function(socket){
     });
 
     socket.on('readyToShoot',function(){
-        player.status = 'readyToShoot';        
+        player.status = 'readyToShoot';    
         console.log(PLAYER_LIST);
     });
 
-    if(player.id == 1){
-        SOCKET_LIST[2].on('readyToShoot',function(){
-            console.log('zijn klaar om te spelen');
-        });
-    }else if(player.id == 2){
-        SOCKET_LIST[1].on('readyToShoot',function(){
-            console.log('zijn klaar om te spelen');
-        });
-    }
+    socket.on('target',function(data){
+        console.log('player '+data.playerId+' shot '+data.target);
+    });
+
+    
 });
+
+setInterval(function(){
+    var numberOfPlayersReady = 0;
+    var checkAmountOfPlayers = true;
+    for(var i in PLAYER_LIST){
+        if (PLAYER_LIST[i].status == 'readyToShoot'){
+            numberOfPlayersReady++;
+        }
+    }
+
+    if(checkAmountOfPlayers && numberOfPlayersReady == 2){
+        checkAmountOfPlayers = false
+        PLAYER_LIST[1].status = 'shooting';
+        PLAYER_LIST[1].myTurn = true;
+        io.emit('gameStarted',{'players':PLAYER_LIST,'idOfPlayerToPlay':2});
+    } 
+       
+},1000/25);
 
 
