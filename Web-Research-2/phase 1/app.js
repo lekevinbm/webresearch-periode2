@@ -105,6 +105,7 @@ io.sockets.on('connection', function(socket){
     socket.id = idOfPlayer;
     idOfPlayer++;
     SOCKET_LIST[socket.id] = socket;
+    console.log(PLAYER_LIST);
  
     var player = Player(socket.id);
     globalPlayer = player;
