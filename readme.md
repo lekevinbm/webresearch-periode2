@@ -25,3 +25,5 @@
 * w3 schools
 * google
 * https://www.youtube.com/watch?v=WXsg9zkhUQQ
+
+**Link dia:https://docs.google.com/presentation/d/10QLJvwrGxy_WNBh3OhUxi69hP3dIOhlm88Hzim-fm24/edit?usp=sharing**
